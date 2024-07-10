@@ -29,39 +29,39 @@ function memoryHog(size) {
 if (isMainThread) {
     let fibonacciSize = 25; // Initial Fibonacci size
     let memorySize = 1e6; // Initial memory allocation size (1 million objects)
-    let intervalHandle = null;
-    let lastWorker = null;
+    const numWorkers = 4; // Number of worker threads
+    let workers = [];
 
-    // Function to perform CPU-intensive workload
-    function performWorkload() {
-        // Perform Fibonacci calculation in a worker thread
-        const worker = new Worker(__filename, { workerData: fibonacciSize });
-        worker.on('message', (result) => {
-            console.log(`Fibonacci(${fibonacciSize}) result: ${result}`);
+    // Function to create and manage worker threads
+    function createWorker(size) {
+        const worker = new Worker(__filename, { workerData: { fibonacciSize: size, memorySize: size } });
+        worker.on('message', (msg) => {
+            console.log(`Worker finished: ${msg}`);
         });
-
-        // Allocate memory in chunks
-        const bigArray = memoryHog(memorySize);
-
-        // Store reference to the last worker
-        lastWorker = worker;
+        worker.on('error', (err) => {
+            console.error('Worker error:', err);
+        });
+        worker.on('exit', (code) => {
+            console.log(`Worker exited with code ${code}`);
+            if (code !== 0) {
+                createWorker(size); // Restart worker if it crashes
+            }
+        });
+        return worker;
     }
 
-    // Function to continuously increase workload
-    function increaseWorkload() {
-        // Increase Fibonacci size and memory size incrementally
-        fibonacciSize += 1; // Adjust increment size as needed
-        memorySize += 1e6; // Adjust increment size as needed (1 million objects)
-
-        // Perform the workload
-        performWorkload();
+    // Create initial workers
+    for (let i = 0; i < numWorkers; i++) {
+        workers.push(createWorker(fibonacciSize));
     }
 
-    // Initial workload
-    performWorkload();
-
-    // Start increasing workload every 5 seconds (adjust interval as needed)
-    intervalHandle = setInterval(increaseWorkload, 5000);
+    // Increase workload periodically
+    setInterval(() => {
+        fibonacciSize += 1; // Increase Fibonacci size
+        memorySize += 1e6; // Increase memory size (1 million objects)
+        workers.push(createWorker(fibonacciSize));
+        console.log(`Increased workload: Fibonacci size ${fibonacciSize}, Memory size ${memorySize}`);
+    }, 5000);
 
     // Monitor and log CPU and memory usage every second
     setInterval(() => {
@@ -73,7 +73,17 @@ if (isMainThread) {
             console.log(`CPU: ${stats.cpu.toFixed(2)}%, Memory: ${(stats.memory / (1024 * 1024)).toFixed(2)} MB`);
         });
     }, 1000);
+
 } else {
-    // Perform the CPU intensive task in the worker thread
-    parentPort.postMessage(fibonacci(workerData));
+    const { fibonacciSize, memorySize } = workerData;
+
+    // Perform the CPU intensive task
+    const fibResult = fibonacci(fibonacciSize);
+    console.log(`Fibonacci(${fibonacciSize}) result: ${fibResult}`);
+
+    // Allocate memory in chunks
+    memoryHog(memorySize);
+
+    // Notify that the worker has finished its task
+    parentPort.postMessage(`Worker completed Fibonacci(${fibonacciSize}) and memory allocation of size ${memorySize}`);
 }
