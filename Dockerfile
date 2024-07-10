@@ -17,4 +17,4 @@ RUN npm install
 COPY . .
 
 # Command to run the Node.js script
-CMD ["node", "infinite_stress_test.js"]
+CMD ["node", "stress.js"]
