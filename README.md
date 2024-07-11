@@ -20,7 +20,7 @@ This project contains a Node.js application designed to perform CPU and memory-i
 ### Clone the Repository
 
 ```sh
-git clone <repository-url>
+git clone https://github.com/hababtarig/nodeapp.git
 cd nodeapp
 ```
 
